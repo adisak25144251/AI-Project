@@ -1,0 +1,5 @@
+{
+  "name": "AI Project Platform",
+  "description": "An interactive curriculum platform for 'AI Project 101', featuring a weekly syllabus, project tracks, deployment guides, and a built-in AI Tutor powered by Gemini.",
+  "requestFramePermissions": []
+}
