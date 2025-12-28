@@ -10,8 +10,45 @@ const LessonPlanModal: React.FC<LessonPlanModalProps> = ({ plan, onClose }) => {
   const [activeTab, setActiveTab] = useState<'timeline' | 'content' | 'workshop' | 'quiz'>('timeline');
   const [showQuizAnswer, setShowQuizAnswer] = useState<number | null>(null);
 
+  // Helper to render text with clickable links
+  const renderTextWithLinks = (text: string) => {
+    // Regex to capture URLs (starting with http/https or www.)
+    const urlRegex = /(https?:\/\/[^\s]+)|(www\.[^\s]+)/g;
+    const matches = text.match(urlRegex);
+
+    if (!matches) return text;
+
+    return text.split(' ').map((word, i) => {
+       const isUrl = word.match(urlRegex);
+       if (isUrl) {
+           let href = word;
+           if (!href.startsWith('http')) href = `https://${href}`;
+           // Remove trailing punctuation if any (like dot or comma)
+           const cleanHref = href.replace(/[.,;)]$/, '');
+           const cleanWord = word.replace(/[.,;)]$/, '');
+           const suffix = word.slice(cleanWord.length);
+           
+           return (
+               <React.Fragment key={i}>
+                   <a 
+                       href={cleanHref} 
+                       target="_blank" 
+                       rel="noopener noreferrer" 
+                       className="text-indigo-600 hover:text-indigo-800 underline font-medium break-all"
+                       onClick={(e) => e.stopPropagation()} 
+                   >
+                       {cleanWord}
+                   </a>
+                   {suffix}{' '}
+               </React.Fragment>
+           );
+       }
+       return word + ' ';
+    });
+  };
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[100] overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
       <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         {/* Background overlay */}
         <div className="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={onClose}></div>
@@ -53,7 +90,7 @@ const LessonPlanModal: React.FC<LessonPlanModalProps> = ({ plan, onClose }) => {
                   data-testid={`tab-${tab.id}`}
                   className={`${
                     activeTab === tab.id
-                      ? 'border-indigo-500 text-indigo-600'
+                      ? 'border-indigo-500 text-indigo-600 bg-indigo-50'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   } w-1/4 py-4 px-1 text-center border-b-2 font-medium text-sm sm:text-base transition-colors`}
                 >
@@ -68,7 +105,7 @@ const LessonPlanModal: React.FC<LessonPlanModalProps> = ({ plan, onClose }) => {
             
             {/* TIMELINE TAB */}
             {activeTab === 'timeline' && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-fade-in">
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
                   <h4 className="font-bold text-gray-800 mb-4 text-lg">Schedule (4 Hours)</h4>
                   <div className="space-y-4">
@@ -79,7 +116,7 @@ const LessonPlanModal: React.FC<LessonPlanModalProps> = ({ plan, onClose }) => {
                         </div>
                         <div>
                           <h5 className="font-bold text-gray-800">{item.activity}</h5>
-                          <p className="text-gray-600 text-sm">{item.detail}</p>
+                          <p className="text-gray-600 text-sm">{renderTextWithLinks(item.detail)}</p>
                         </div>
                       </div>
                     ))}
@@ -98,12 +135,12 @@ const LessonPlanModal: React.FC<LessonPlanModalProps> = ({ plan, onClose }) => {
 
             {/* CONTENT TAB */}
             {activeTab === 'content' && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-fade-in">
                 {plan.contentSummary.map((section, idx) => (
                   <div key={idx} className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
                     <h4 className="font-bold text-gray-800 mb-3 text-lg border-b pb-2 border-gray-100">{section.title}</h4>
                     <ul className="list-disc list-inside space-y-2 text-gray-600">
-                      {section.points.map((pt, i) => <li key={i}>{pt}</li>)}
+                      {section.points.map((pt, i) => <li key={i}>{renderTextWithLinks(pt)}</li>)}
                     </ul>
                   </div>
                 ))}
@@ -115,7 +152,7 @@ const LessonPlanModal: React.FC<LessonPlanModalProps> = ({ plan, onClose }) => {
                   <div className="space-y-6">
                     {plan.demoScript.map((script, idx) => (
                       <div key={idx}>
-                        <p className="font-semibold text-white mb-2">{script.step}: <span className="font-normal text-slate-300">{script.description}</span></p>
+                        <p className="font-semibold text-white mb-2">{script.step}: <span className="font-normal text-slate-300">{renderTextWithLinks(script.description)}</span></p>
                         {script.code && (
                           <pre className="bg-black/50 p-4 rounded-lg overflow-x-auto font-mono text-sm text-green-300 border border-slate-700">
                             <code>{script.code.trim()}</code>
@@ -130,14 +167,14 @@ const LessonPlanModal: React.FC<LessonPlanModalProps> = ({ plan, onClose }) => {
 
             {/* WORKSHOP TAB */}
             {activeTab === 'workshop' && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-fade-in">
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-6">
                     {plan.workshopSteps.map((ws, idx) => (
                       <div key={idx} className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
                         <h4 className="font-bold text-indigo-600 mb-3">{ws.title}</h4>
                         <ol className="list-decimal list-inside space-y-2 text-gray-700 text-sm">
-                          {ws.steps.map((step, i) => <li key={i}>{step}</li>)}
+                          {ws.steps.map((step, i) => <li key={i}>{renderTextWithLinks(step)}</li>)}
                         </ol>
                       </div>
                     ))}
@@ -158,7 +195,7 @@ const LessonPlanModal: React.FC<LessonPlanModalProps> = ({ plan, onClose }) => {
                               ex.level === 'Medium' ? 'bg-yellow-200 text-yellow-800' : 'bg-red-200 text-red-800'
                             }`}>{ex.level}</span>
                             <p className="font-bold text-gray-800 mt-1">{ex.title}</p>
-                            <p className="text-sm text-gray-600">{ex.description}</p>
+                            <p className="text-sm text-gray-600">{renderTextWithLinks(ex.description)}</p>
                           </div>
                         ))}
                       </div>
@@ -171,7 +208,7 @@ const LessonPlanModal: React.FC<LessonPlanModalProps> = ({ plan, onClose }) => {
                         {plan.debugCorner.map((bug, idx) => (
                           <div key={idx} className="text-sm">
                             <p className="font-mono text-red-600 bg-red-100 inline-block px-1 rounded mb-1">{bug.problem}</p>
-                            <p className="text-gray-700">💡 {bug.solution}</p>
+                            <p className="text-gray-700">💡 {renderTextWithLinks(bug.solution)}</p>
                           </div>
                         ))}
                       </div>
@@ -183,7 +220,7 @@ const LessonPlanModal: React.FC<LessonPlanModalProps> = ({ plan, onClose }) => {
 
             {/* QUIZ TAB */}
             {activeTab === 'quiz' && (
-              <div className="max-w-2xl mx-auto space-y-6">
+              <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 text-center">
                   <h4 className="font-bold text-gray-800 text-lg">ทดสอบความเข้าใจ Week {plan.week}</h4>
                   <p className="text-gray-500 text-sm">ลองทำดูสิว่าคุณเข้าใจเรื่องนี้แค่ไหน?</p>
@@ -214,7 +251,7 @@ const LessonPlanModal: React.FC<LessonPlanModalProps> = ({ plan, onClose }) => {
                     </div>
                     {showQuizAnswer === q.id && (
                       <div className="mt-3 p-3 bg-blue-50 text-blue-800 text-sm rounded-lg animate-fade-in">
-                        <strong>คำอธิบาย:</strong> {q.explanation}
+                        <strong>คำอธิบาย:</strong> {renderTextWithLinks(q.explanation)}
                       </div>
                     )}
                   </div>

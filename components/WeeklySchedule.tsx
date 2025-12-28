@@ -1,5 +1,19 @@
 import React, { useState } from 'react';
-import { WEEKLY_CONTENT, WEEK_1_LESSON_PLAN } from '../constants';
+import { 
+  WEEKLY_CONTENT, 
+  WEEK_1_LESSON_PLAN, 
+  WEEK_2_LESSON_PLAN,
+  WEEK_3_LESSON_PLAN,
+  WEEK_4_LESSON_PLAN,
+  WEEK_5_LESSON_PLAN,
+  WEEK_6_LESSON_PLAN,
+  WEEK_7_LESSON_PLAN,
+  WEEK_8_LESSON_PLAN,
+  WEEK_9_LESSON_PLAN,
+  WEEK_10_LESSON_PLAN,
+  WEEK_11_LESSON_PLAN,
+  WEEK_12_LESSON_PLAN
+} from '../constants';
 import LessonPlanModal from './LessonPlanModal';
 import { motion } from 'framer-motion';
 import { CheckCircle2, ChevronRight, Lock } from 'lucide-react';
@@ -10,10 +24,21 @@ const WeeklySchedule: React.FC = () => {
 
   const handleOpenLessonPlan = (week: number) => {
     logEvent('lesson_view', { week });
-    if (week === 1) {
-      setSelectedPlan(WEEK_1_LESSON_PLAN);
-    } else {
-      alert("Lesson plan for this week is coming soon! (Try Week 1)");
+    switch (week) {
+      case 1: setSelectedPlan(WEEK_1_LESSON_PLAN); break;
+      case 2: setSelectedPlan(WEEK_2_LESSON_PLAN); break;
+      case 3: setSelectedPlan(WEEK_3_LESSON_PLAN); break;
+      case 4: setSelectedPlan(WEEK_4_LESSON_PLAN); break;
+      case 5: setSelectedPlan(WEEK_5_LESSON_PLAN); break;
+      case 6: setSelectedPlan(WEEK_6_LESSON_PLAN); break;
+      case 7: setSelectedPlan(WEEK_7_LESSON_PLAN); break;
+      case 8: setSelectedPlan(WEEK_8_LESSON_PLAN); break;
+      case 9: setSelectedPlan(WEEK_9_LESSON_PLAN); break;
+      case 10: setSelectedPlan(WEEK_10_LESSON_PLAN); break;
+      case 11: setSelectedPlan(WEEK_11_LESSON_PLAN); break;
+      case 12: setSelectedPlan(WEEK_12_LESSON_PLAN); break;
+      default:
+        alert("Lesson plan for this week is coming soon! (Try Week 1-12)");
     }
   };
 
@@ -49,7 +74,7 @@ const WeeklySchedule: React.FC = () => {
             >
               {/* Timeline Node */}
               <div className="absolute left-8 md:left-1/2 w-10 h-10 rounded-full bg-white border-4 border-indigo-50 transform -translate-x-1/2 z-10 shadow-lg flex items-center justify-center">
-                 <div className={`w-3 h-3 rounded-full ${module.week === 1 ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`}></div>
+                 <div className={`w-3 h-3 rounded-full ${module.week <= 12 ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`}></div>
               </div>
 
               {/* Spacer for Desktop Layout */}
@@ -62,11 +87,11 @@ const WeeklySchedule: React.FC = () => {
                   onClick={() => handleOpenLessonPlan(module.week)}
                   data-testid={`week-card-${module.week}`}
                 >
-                  <div className={`absolute top-0 w-1.5 h-full transition-all duration-300 ${module.week === 1 ? 'bg-emerald-400' : 'bg-slate-200 group-hover:bg-indigo-400'} ${isLeft ? 'right-0 md:right-auto md:left-0' : 'left-0'}`}></div>
+                  <div className={`absolute top-0 w-1.5 h-full transition-all duration-300 ${module.week <= 12 ? 'bg-emerald-400' : 'bg-slate-200 group-hover:bg-indigo-400'} ${isLeft ? 'right-0 md:right-auto md:left-0' : 'left-0'}`}></div>
                   
                   <div className={`flex items-center gap-3 mb-4 ${isLeft ? 'md:justify-end' : 'md:justify-start'}`}>
                     <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-500">Week {module.week}</span>
-                    {module.week === 1 
+                    {module.week <= 12 
                       ? <span className="flex items-center text-[10px] font-bold text-emerald-600 gap-1 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100"><CheckCircle2 className="w-3 h-3"/> UNLOCKED</span> 
                       : <span className="flex items-center text-[10px] font-bold text-slate-400 gap-1 bg-slate-50 px-2 py-1 rounded-full"><Lock className="w-3 h-3"/> LOCKED</span>}
                   </div>
