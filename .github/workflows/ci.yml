@@ -1,0 +1,55 @@
+name: CI Quality Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  quality:
+    name: 🛡️ Quality & Tests
+    runs-on: ubuntu-latest
+    env:
+      E2E_BASE_URL: http://localhost:4173
+      E2E_USER_EMAIL: student@test.com
+      E2E_USER_PASSWORD: Passw0rd!
+      E2E_ADMIN_EMAIL: admin@test.com
+      E2E_ADMIN_PASSWORD: Passw0rd!
+      
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: 🔍 Type Check
+        run: npx tsc --noEmit
+
+      - name: 🏗️ Build
+        run: npm run build
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: 🎭 Preview & E2E Test
+        # We use 'vite preview' to test the built production artifact
+        run: |
+          npm run preview -- --port 4173 &
+          npx wait-on http://localhost:4173
+          npm run test:e2e
+        
+      - name: Upload Test Report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 5
