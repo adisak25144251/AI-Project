@@ -1,245 +1,150 @@
 import { GoogleGenAI } from "@google/genai";
 
-const API_KEY =
-  (process.env.GEMINI_API_KEY as string | undefined) ||
-  (process.env.API_KEY as string | undefined) ||
-  (import.meta as any).env?.VITE_GEMINI_API_KEY ||
-  "";
+/**
+ * Backward-compatible Gemini Service
+ * - ให้ตรงกับ components เดิม: ฟังก์ชันรับ string ได้ และคืน string เสมอ
+ * - Export Types/Functions ตามที่ components import อยู่
+ */
 
 const DEFAULT_MODEL = "gemini-2.0-flash";
 
-function getClient() {
+const API_KEY: string =
+  (process.env.GEMINI_API_KEY as string | undefined) ||
+  (process.env.API_KEY as string | undefined) ||
+  (((import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined) ?? "") ||
+  "";
+
+function getClient(): GoogleGenAI | null {
   if (!API_KEY) return null;
   return new GoogleGenAI({ apiKey: API_KEY });
 }
 
-function mustHaveKey() {
-  if (!API_KEY) {
-    return {
-      ok: false as const,
-      text:
-        "⚠️ ยังไม่ได้ตั้งค่า GEMINI_API_KEY (แนะนำใช้ VITE_GEMINI_API_KEY ใน .env สำหรับ Vite) หรือทำ backend proxy เพื่อความปลอดภัย",
-    };
-  }
-  return { ok: true as const };
+function noKeyMsg(): string {
+  return "⚠️ ยังไม่ได้ตั้งค่า GEMINI_API_KEY / VITE_GEMINI_API_KEY";
 }
 
-/** ---------- Generic helpers ---------- */
-
+/** ✅ Core: components เรียกใช้อยู่ */
 export async function sendMessageToGemini(
-  userMessage: string,
+  message: string,
   opts?: { system?: string; model?: string; temperature?: number; maxOutputTokens?: number }
 ): Promise<string> {
-  const keyCheck = mustHaveKey();
-  if (!keyCheck.ok) return keyCheck.text;
+  const client = getClient();
+  if (!client) return noKeyMsg();
 
-  const client = getClient()!;
   const model = opts?.model ?? DEFAULT_MODEL;
-
-  // ใช้ chat session ชั่วคราว (one-shot chat)
   const chat = client.chats.create({
     model,
     config: {
       temperature: opts?.temperature ?? 0.6,
-      maxOutputTokens: opts?.maxOutputTokens ?? 1024,
+      maxOutputTokens: opts?.maxOutputTokens ?? 1200,
     },
   });
 
   const system = opts?.system?.trim();
-  const message = system ? `${system}\n\nUSER:\n${userMessage}` : userMessage;
+  const finalMessage = system ? `${system}\n\nUSER:\n${message}` : message;
 
-  const res = await chat.sendMessage({ message });
+  const res = await chat.sendMessage({ message: finalMessage });
   return (res as any)?.text ?? "";
 }
 
-async function jsonFromGemini<T>(
-  system: string,
-  payload: unknown,
-  schemaHint: string,
-  opts?: { model?: string }
-): Promise<T> {
-  const prompt = [
-    system,
-    "",
-    "Return ONLY valid JSON. No markdown. No backticks. No extra text.",
-    "If you are unsure, still return JSON with best-effort fields and include `notes`.",
-    "",
-    "Schema:",
-    schemaHint,
-    "",
-    "Input JSON:",
-    JSON.stringify(payload, null, 2),
-  ].join("\n");
-
-  const txt = await sendMessageToGemini(prompt, {
-    model: opts?.model ?? DEFAULT_MODEL,
-    temperature: 0.4,
-    maxOutputTokens: 1400,
-  });
-
-  // best-effort parse: ตัดส่วนเกินกรณีโมเดลเผลอใส่ข้อความ
-  const firstBrace = txt.indexOf("{");
-  const lastBrace = txt.lastIndexOf("}");
-  const safe = firstBrace >= 0 && lastBrace >= 0 ? txt.slice(firstBrace, lastBrace + 1) : txt;
-
-  try {
-    return JSON.parse(safe) as T;
-  } catch {
-    // fallback: คืนเป็น object minimal
-    return {
-      ok: false,
-      notes: "Failed to parse JSON from Gemini",
-      raw: txt,
-    } as unknown as T;
-  }
-}
-
-/** ---------- Types required by components ---------- */
-
+/** ✅ Types ให้ตรงกับที่ components ใช้ */
 export type DebugInputs = {
-  errorMessage: string;
+  error: string;
+  expected?: string;
+  actual?: string;
+  env?: string;
   stack?: string;
   filePath?: string;
   codeSnippet?: string;
-  environment?: "dev" | "build" | "runtime";
 };
 
 export type ProjectInputs = {
-  goal: string;
-  audience?: string;
-  constraints?: string[];
-  timelineWeeks?: number;
-  techPreference?: string[];
-  deploymentTarget?: "web" | "mobile" | "edge" | "raspberry_pi" | "cloud";
+  problem: string;
+  users: string;
+  data?: string;
+  constraints?: string; // component ใส่เป็น string
 };
 
 export type SyllabusInputs = {
-  courseName?: string;
-  weeks?: number;
-  level?: "beginner" | "intermediate";
-  outcomes?: string[];
-  tracks?: Array<"chatbot" | "vision" | "analytics" | "iot">;
+  name: string;
+  level: string; // component ใส่ '' ได้
+  duration?: string;
+  focus?: string;
 };
 
-/** ---------- Feature functions required by components ---------- */
+/** ✅ Functions ที่ components import อยู่ — คืน string เสมอ */
 
-export async function auditCurriculum(input: {
-  curriculumText: string;
-  targetAudience?: string;
-  durationWeeks?: number;
-}): Promise<{
-  ok: boolean;
-  score: number;
-  strengths: string[];
-  gaps: string[];
-  improvements: string[];
-  weeklyWorkshopSuggestions: string[];
-  notes?: string;
-}> {
-  const system =
-    "You are a curriculum auditor. Evaluate completeness, clarity, sequencing, practical outcomes, and assessments. Be strict but constructive.";
+export async function auditCurriculum(
+  content: string | { curriculumText: string; targetAudience?: string; durationWeeks?: number }
+): Promise<string> {
+  const curriculumText = typeof content === "string" ? content : content.curriculumText;
+  const system = "You are a strict curriculum auditor. Output in clean Markdown (Thai).";
 
-  const schemaHint = `{
-    "ok": true,
-    "score": 0-100,
-    "strengths": ["..."],
-    "gaps": ["..."],
-    "improvements": ["..."],
-    "weeklyWorkshopSuggestions": ["..."],
-    "notes": "optional"
-  }`;
+  const prompt = `
+ตรวจหลักสูตรด้านล่างและทำรายงานเป็น Markdown (ภาษาไทย) โดยต้องมี:
+- คะแนนรวม (0-100) + เหตุผลสั้น
+- จุดแข็ง / ช่องว่าง / ข้อเสนอแนะ (bullet)
+- Workshop รายสัปดาห์ (อย่างน้อย 8-12 สัปดาห์)
+- Checklist ทำให้เรียนแล้วทำโปรเจกต์ได้จริง
 
-  return jsonFromGemini(system, input, schemaHint);
+Curriculum:
+${curriculumText}
+`.trim();
+
+  return sendMessageToGemini(prompt, { system, temperature: 0.4 });
 }
 
-export async function analyzeError(input: DebugInputs): Promise<{
-  ok: boolean;
-  rootCause: string;
-  evidence: string[];
-  fixes: Array<{ title: string; steps: string[] }>;
-  prevention: string[];
-  notes?: string;
-}> {
-  const system =
-    "You are a senior debugging coach for TypeScript/React/Vite. Analyze the error, infer likely root cause, and provide step-by-step fixes. Avoid guessing; provide verification steps.";
+export async function analyzeError(inputs: DebugInputs): Promise<string> {
+  const system = "You are a senior TS/React/Vite debugging coach. Output Markdown + exact commands.";
 
-  const schemaHint = `{
-    "ok": true,
-    "rootCause": "string",
-    "evidence": ["string"],
-    "fixes": [{"title":"string","steps":["string"]}],
-    "prevention": ["string"],
-    "notes": "optional"
-  }`;
+  const prompt = `
+วิเคราะห์ error นี้แบบเป็นขั้นตอน พร้อมคำสั่งแก้จริง:
 
-  return jsonFromGemini(system, input, schemaHint);
+Error: ${inputs.error || "-"}
+Expected: ${inputs.expected || "-"}
+Actual: ${inputs.actual || "-"}
+Env: ${inputs.env || "-"}
+Stack: ${inputs.stack || "-"}
+File: ${inputs.filePath || "-"}
+Code:
+${inputs.codeSnippet || "-"}
+`.trim();
+
+  return sendMessageToGemini(prompt, { system, temperature: 0.35 });
 }
 
-export async function generateProjectPlan(input: ProjectInputs): Promise<{
-  ok: boolean;
-  overview: string;
-  milestones: Array<{ week: number; deliverables: string[] }>;
-  dataPlan: string[];
-  modelPlan: string[];
-  deploymentPlan: string[];
-  risks: string[];
-  notes?: string;
-}> {
-  const system =
-    "You are an AI Project Manager. Create a practical project plan for a beginner to build a real AI project end-to-end with weekly deliverables.";
+export async function generateProjectPlan(inputs: ProjectInputs): Promise<string> {
+  const system = "You are an AI Project Manager. Output enterprise-grade plan in Markdown.";
 
-  const schemaHint = `{
-    "ok": true,
-    "overview": "string",
-    "milestones": [{"week":1,"deliverables":["string"]}],
-    "dataPlan": ["string"],
-    "modelPlan": ["string"],
-    "deploymentPlan": ["string"],
-    "risks": ["string"],
-    "notes": "optional"
-  }`;
+  const prompt = `
+ทำแผนโปรเจกต์ AI สำหรับมือใหม่ให้ทำได้จริง (Markdown):
+- Scope/Out of scope
+- แผน 8-12 สัปดาห์ (Week -> Deliverables)
+- Data/Model/Deploy plan + Risk/Mitigation + Portfolio outputs
 
-  return jsonFromGemini(system, input, schemaHint);
+Problem: ${inputs.problem || "-"}
+Users: ${inputs.users || "-"}
+Data: ${inputs.data || "-"}
+Constraints: ${inputs.constraints || "-"}
+`.trim();
+
+  return sendMessageToGemini(prompt, { system, temperature: 0.4 });
 }
 
-export async function generateSyllabus(input: SyllabusInputs): Promise<{
-  ok: boolean;
-  title: string;
-  weeks: Array<{
-    week: number;
-    topic: string;
-    outcomes: string[];
-    lessonOutline: string[];
-    workshop: string;
-    quiz: string;
-  }>;
-  capstone: string;
-  notes?: string;
-}> {
-  const system =
-    "You are a syllabus designer for an AI course. Build a week-by-week syllabus with lesson outline, workshop, and quiz. Must be beginner-friendly and hands-on.";
+export async function generateSyllabus(inputs: SyllabusInputs): Promise<string> {
+  const system = "You are a syllabus designer. Week-by-week syllabus in Markdown, beginner-friendly.";
 
-  const schemaHint = `{
-    "ok": true,
-    "title": "string",
-    "weeks": [{
-      "week": 1,
-      "topic": "string",
-      "outcomes": ["string"],
-      "lessonOutline": ["string"],
-      "workshop": "string",
-      "quiz": "string"
-    }],
-    "capstone": "string",
-    "notes": "optional"
-  }`;
+  const prompt = `
+ออกแบบหลักสูตร AI Project 101 (Markdown) ให้ทำได้จริงจน Deploy:
+- อย่างน้อย 8-12 สัปดาห์
+- สัปดาห์ละ: Topic, Outcomes, Lesson outline, Workshop, Quiz, Homework
+- Capstone + Rubric
 
-  const weeks = input.weeks ?? 12;
-  const payload = { ...input, weeks };
-  return jsonFromGemini(system, payload, schemaHint);
-}
+ชื่อคอร์ส: ${inputs.name || "AI Project 101"}
+ระดับ: ${inputs.level || "beginner"}
+ระยะเวลา: ${inputs.duration || "12 weeks"}
+โฟกัส: ${inputs.focus || "Chatbot / Vision / Analytics / IoT"}
+`.trim();
 
-/** ---------- Optional convenience exports (เผื่อเรียกตรง ๆ) ---------- */
-export async function generateText(prompt: string, model: string = DEFAULT_MODEL) {
-  return sendMessageToGemini(prompt, { model });
+  return sendMessageToGemini(prompt, { system, temperature: 0.4 });
 }
